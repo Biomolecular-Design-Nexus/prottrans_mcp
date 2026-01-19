@@ -8,12 +8,25 @@ This ProtTrans MCP server provides comprehensive protein structure analysis tool
 
 ## Installation
 
+### Quick Setup (Recommended)
+
+Run the automated setup script:
+
+```bash
+cd prottrans_mcp
+bash quick_setup.sh
+```
+
+The script will create the conda environment, install PyTorch with CUDA, transformers, and all dependencies, and display the Claude Code configuration. See `quick_setup.sh --help` for options like `--skip-env`.
+
+### Manual Installation (Alternative)
+
 ```bash
 # Create and activate virtual environment
 mamba env create -p ./env python=3.10 pip -y
 mamba activate ./env
 pip install torch==2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install transformers sentencepiece 
+pip install transformers sentencepiece
 pip install pandas loguru scikit-learn xgboost biopython sniffio
 pip install --ignore-installed fastmcp
 ```

@@ -23,7 +23,7 @@ from tqdm import tqdm
 from loguru import logger
 
 from transformers import T5Tokenizer, T5EncoderModel
-from transformers import AlbertTokenizer, AutoModel
+from transformers import AlbertTokenizer, AlbertModel
 
 
 def load_prottrans_model(model_name: str = "ProtT5-XL", device: str = "cuda"):
@@ -49,7 +49,7 @@ def load_prottrans_model(model_name: str = "ProtT5-XL", device: str = "cuda"):
         tokenizer = AlbertTokenizer.from_pretrained(
             "Rostlab/prot_albert", do_lower_case=False
         )
-        model = AutoModel.from_pretrained("Rostlab/prot_albert")
+        model = AlbertModel.from_pretrained("Rostlab/prot_albert")
     else:
         raise ValueError(
             f"Model {model_name} is not supported. "

@@ -154,16 +154,16 @@ Predict fitness values using a pre-trained model.
 
 **Train a fitness model:**
 ```
-Can you help train a ProtTrans model for data @examples/case2.1_subtilisin/ and save it to
-@examples/case2.1_subtilisin/prot-t5_fitness using the ProtTrans mcp server with ProtT5-XL model.
+Can you help train a ProtTrans model for data @example/ and save it to
+@results/prot-t5_fitness using the ProtTrans mcp server with ProtT5-XL model.
 Please convert the relative path to absolute path before calling the MCP servers.
 Please create the embeddings if not ready.
 ```
 
 **Calculate log-likelihoods:**
 ```
-Can you help calculate ProtBERT likelihood for data @examples/case2.1_subtilisin/data.csv
-with wild-type @examples/case2.1_subtilisin/wt.fasta using the prottrans MCP server.
+Can you help calculate ProtBERT likelihood for data @example/data.csv
+with wild-type @example/wt.fasta using the prottrans MCP server.
 Please convert the relative path to absolute path before calling the MCP servers.
 ```
 

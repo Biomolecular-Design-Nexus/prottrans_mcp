@@ -1,6 +1,7 @@
 torch==2.6.0
 transformers
 sentencepiece
+protobuf
 pandas
 loguru
 scikit-learn

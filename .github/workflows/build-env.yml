@@ -41,76 +41,84 @@ jobs:
             transformers sentencepiece pandas loguru scikit-learn xgboost biopython sniffio
           ./env/bin/pip install --ignore-installed fastmcp
 
-      - name: Slim environment
+      - name: Slim environment (pip-managed packages only)
         shell: bash -el {0}
         run: |
           echo "=== Before cleanup ==="
           du -sh ./env
+          SP=./env/lib/python3.10/site-packages
 
-          # 1. Remove duplicate CUDA libs from env/lib/ (torch resolves from nvidia/*/lib/)
-          find ./env/lib/ -maxdepth 1 \( \
-            -name 'libcublas*' -o -name 'libcufft*' -o -name 'libcusolver*' \
-            -o -name 'libcusparse*' -o -name 'libnvrtc*' \
-          \) -delete 2>/dev/null || true
-
-          # 2. Remove triton (only needed for torch.compile, not used by ProtTrans)
+          # Remove triton (only needed for torch.compile, not used by ProtTrans)
           ./env/bin/pip uninstall -y triton 2>/dev/null || true
-          rm -rf ./env/lib/python3.10/site-packages/triton
+          rm -rf $SP/triton
 
-          # 3. Remove unused MKL variants (torch uses mkl_rt -> core + intel_thread only)
-          find ./env/lib/ -maxdepth 1 \( \
-            -name 'libmkl_pgi*' -o -name 'libmkl_tbb*' -o -name 'libmkl_gnu*' \
-            -o -name 'libmkl_sequential*' -o -name 'libmkl_scalapack*' \
-            -o -name 'libmkl_blacs*' -o -name 'libmkl*ilp64*' \
-          \) -delete 2>/dev/null || true
+          # Remove NPP libraries (image processing, unused)
+          find $SP/nvidia -name 'libnpp*' -delete 2>/dev/null || true
 
-          # 4. Remove NPP libraries (image processing, unused)
-          find ./env -name 'libnpp*' -delete 2>/dev/null || true
+          # Remove NCCL (multi-GPU distributed, not needed for single-GPU inference)
+          rm -rf $SP/nvidia/nccl
 
-          # 5. Remove __pycache__ directories (regenerated on first import)
-          find ./env -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+          # Remove CUDA toolkit targets/ directory (headers/stubs, not runtime)
+          find $SP/nvidia -type d -name 'targets' -exec rm -rf {} + 2>/dev/null || true
 
-          # 6. Remove NCCL (multi-GPU distributed, not needed for single-GPU inference)
-          find ./env -name 'libnccl*' -delete 2>/dev/null || true
-          rm -rf ./env/lib/python3.10/site-packages/nvidia/nccl
+          # Remove nvidia/cuda_cupti pip package (profiling only)
+          rm -rf $SP/nvidia/cuda_cupti
 
-          # 7. Remove CUDA toolkit targets/ directory (headers/stubs, not runtime)
-          find ./env -type d -name 'targets' -path '*/nvidia/*' -exec rm -rf {} + 2>/dev/null || true
+          # Remove profiling libs (nvperf, cupti_static) in pip nvidia packages
+          find $SP/nvidia -name 'libnvperf*' -delete 2>/dev/null || true
+          find $SP/nvidia -name 'libcupti_static*' -delete 2>/dev/null || true
 
-          # 8. Remove test directories
-          find ./env/lib/python3.10/site-packages -type d -name 'tests' -exec rm -rf {} + 2>/dev/null || true
-          find ./env/lib/python3.10/site-packages -type d -name 'test' -exec rm -rf {} + 2>/dev/null || true
+          # Remove torch C++ headers (only for building extensions)
+          rm -rf $SP/torch/include
 
-          # 9. Remove profiling libs (nvperf, cupti_static)
-          find ./env -name 'libnvperf*' -delete 2>/dev/null || true
-          find ./env -name 'libcupti_static*' -delete 2>/dev/null || true
+          # Remove torchaudio if present
+          rm -rf $SP/torchaudio
 
-          # 10. Remove torch C++ headers (only for building extensions)
-          rm -rf ./env/lib/python3.10/site-packages/torch/include
+          # Remove test directories inside site-packages
+          find $SP -type d -name 'tests' -exec rm -rf {} + 2>/dev/null || true
+          find $SP -type d -name 'test' -exec rm -rf {} + 2>/dev/null || true
 
-          # 11. Remove nvidia/cuda_cupti pip package (profiling only)
-          rm -rf ./env/lib/python3.10/site-packages/nvidia/cuda_cupti
-
-          # 12. Remove pip, setuptools, wheel (not needed in packed env)
-          ./env/bin/pip uninstall -y pip setuptools wheel 2>/dev/null || true
-
-          # 13. Remove torchaudio if present
-          rm -rf ./env/lib/python3.10/site-packages/torchaudio
-
-          # 14. Remove .dist-info directories (package metadata)
-          find ./env/lib/python3.10/site-packages -maxdepth 1 -type d -name '*.dist-info' -exec rm -rf {} + 2>/dev/null || true
-
-          # 15. Strip debug symbols from .so files
-          find ./env -name '*.so' -exec strip --strip-debug {} + 2>/dev/null || true
-
-          echo "=== After cleanup ==="
+          echo "=== After pre-pack cleanup ==="
           du -sh ./env
 
       - name: Pack environment
         shell: bash -el {0}
         run: |
           conda install -n base conda-pack -y
-          $(conda info --base)/bin/conda-pack -p ./env -o prottrans_mcp-env.tar.gz --ignore-editable-packages
+          $(conda info --base)/bin/conda-pack -p ./env -o prottrans_mcp-env.tar.gz --ignore-editable-packages --force
+          ls -lh prottrans_mcp-env.tar.gz
+
+      - name: Post-pack slim (strip, caches, metadata)
+        run: |
+          # Repack after stripping debug symbols and removing caches
+          mkdir -p _repack && cd _repack
+          tar xzf ../prottrans_mcp-env.tar.gz
+
+          # Remove duplicate CUDA libs from lib/ (torch resolves from nvidia/*/lib/)
+          find ./lib/ -maxdepth 1 \( \
+            -name 'libcublas*' -o -name 'libcufft*' -o -name 'libcusolver*' \
+            -o -name 'libcusparse*' -o -name 'libnvrtc*' \
+          \) -delete 2>/dev/null || true
+
+          # Remove unused MKL variants
+          find ./lib/ -maxdepth 1 \( \
+            -name 'libmkl_pgi*' -o -name 'libmkl_tbb*' -o -name 'libmkl_gnu*' \
+            -o -name 'libmkl_sequential*' -o -name 'libmkl_scalapack*' \
+            -o -name 'libmkl_blacs*' -o -name 'libmkl*ilp64*' \
+          \) -delete 2>/dev/null || true
+
+          # Remove __pycache__ directories
+          find . -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
+
+          # Remove .dist-info directories
+          find ./lib/python3.10/site-packages -maxdepth 1 -type d -name '*.dist-info' -exec rm -rf {} + 2>/dev/null || true
+
+          # Strip debug symbols from .so files
+          find . -name '*.so' -exec strip --strip-debug {} + 2>/dev/null || true
+
+          # Repack
+          tar czf ../prottrans_mcp-env.tar.gz .
+          cd .. && rm -rf _repack
           ls -lh prottrans_mcp-env.tar.gz
 
       - name: Split tarball if over 1.9GB

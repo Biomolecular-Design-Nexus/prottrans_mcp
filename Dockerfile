@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir --prefix=/install \
     --extra-index-url https://download.pytorch.org/whl/cu118 \
     -r requirements.txt
 RUN pip install --no-cache-dir --prefix=/install --ignore-installed fastmcp
+RUN pip install --no-cache-dir --prefix=/install tiktoken
 
 FROM python:3.10-slim AS runtime
 

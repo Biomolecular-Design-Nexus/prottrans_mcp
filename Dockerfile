@@ -18,8 +18,11 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY src/ ./src/
 COPY scripts/ ./scripts/
-RUN mkdir -p tmp/inputs tmp/outputs
+RUN mkdir -p tmp/inputs tmp/outputs .cache
 
 ENV PYTHONPATH=/app
+ENV HF_HOME=/app/.cache
+ENV TRANSFORMERS_CACHE=/app/.cache/transformers
+ENV TORCH_HOME=/app/.cache/torch
 
 CMD ["python", "src/server.py"]
